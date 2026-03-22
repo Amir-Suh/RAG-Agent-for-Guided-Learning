@@ -1,68 +1,69 @@
 import os
 from dotenv import load_dotenv
-from llama_parse import LlamaParse
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
-from llama_index.llms.openai import OpenAI
-from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.gemini import Gemini
+from llama_index.embeddings.gemini import GeminiEmbedding
 
-# Load environment variables from the .env file to keep API keys secure.
+# 1. Load environment variables (Make sure GOOGLE_API_KEY is in your .env file)
 load_dotenv()
 
-# Configure the global settings for LlamaIndex.
-# We use gpt-4o-mini for a balance of cost and reasoning capability.
-# Temperature is set to 0.2 to keep the agent's responses factual and grounded in the text,
-# which is crucial for an educational tool.
-Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0.2)
+def setup_gemini_rag():
+    print("Initializing Gemini API...")
+    
+    # 2. Configure the LLM (The "Brain")
+    # Gemini 1.5 Flash is excellent for high-speed, cost-effective RAG
+    llm = Gemini(model="models/gemini-1.5-flash")
+    
+    # 3. Configure the Embedding Model (The "Search Engine")
+    # text-embedding-004 is Google's free embedding model
+    embed_model = GeminiEmbedding(model_name="models/text-embedding-004")
+    
+    # 4. Apply to LlamaIndex Global Settings
+    # This tells the entire app to use Gemini instead of the OpenAI default
+    Settings.llm = llm
+    Settings.embed_model = embed_model
+    
+    print("Gemini settings applied successfully.\n")
 
-# Define the embedding model. This translates our text into numerical vectors.
-# text-embedding-3-small is currently the standard for efficient, high-quality retrieval.
-Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
-
-def main():
-    # Initialize LlamaParse. 
-    # Standard PDF parsers often destroy the formatting of lecture slides.
-    # LlamaParse uses vision models to understand the layout and returns structured Markdown,
-    # preserving hierarchies like titles, bullet points, and tables.
-    parser = LlamaParse(
-        result_type="markdown", 
-        verbose=True
-    )
+def run_agent():
+    # 5. Load your documents
+    # Note: Create a folder named "data" in the same directory and drop some PDFs/text files in it
+    print("Loading documents from the 'data' folder...")
+    try:
+        documents = SimpleDirectoryReader("data").load_data()
+    except ValueError:
+        print("Error: Could not find a 'data' folder. Please create one and add some files.")
+        return
+        
+    print(f"Loaded {len(documents)} document chunks. Building index...")
     
-    # Map the parser to handle any .pdf files encountered by the directory reader.
-    file_extractor = {".pdf": parser}
-    
-    print("Loading documents into memory...")
-    
-    # SimpleDirectoryReader scans the target folder and applies the appropriate parser.
-    # It loads the raw Markdown text into Document objects.
-    documents = SimpleDirectoryReader(
-        "./data", 
-        file_extractor=file_extractor
-    ).load_data()
-
-    print("Generating embeddings and building the vector index...")
-    
-    # VectorStoreIndex chunks the Document objects into smaller segments,
-    # passes them to the embedding model, and stores the resulting vectors in memory.
-    # In a later phase, we will replace this in-memory storage with a persistent database like ChromaDB.
+    # 6. Build the Vector Index
     index = VectorStoreIndex.from_documents(documents)
-
-    # Convert the vector index into a query engine. 
-    # This engine handles taking a user's text query, embedding it, finding the most similar 
-    # document chunks, and passing those chunks to the LLM to generate a final answer.
+    
+    # 7. Create the Query Engine
     query_engine = index.as_query_engine()
     
-    print("System ready. Type 'exit' to quit.")
+    print("\n==================================================")
+    print("RAG Agent Ready! Ask a question (type 'quit' to exit)")
+    print("==================================================")
     
-    # Begin the interactive chat loop.
+    # 8. Start the chat loop
     while True:
-        user_query = input("\nStudent: ")
-        if user_query.lower() in ["exit", "quit"]:
+        user_query = input("\nYour question: ")
+        
+        if user_query.lower() in ['quit', 'exit']:
+            print("Exiting RAG agent. Goodbye!")
             break
             
-        # The query engine executes the retrieval and generation steps synchronously.
+        # Query the documents
         response = query_engine.query(user_query)
         print(f"\nAgent: {response}")
 
 if __name__ == "__main__":
-    main()
+    # Make sure the API key is actually loaded
+    if not os.environ.get("GOOGLE_API_KEY"):
+        print("CRITICAL ERROR: GOOGLE_API_KEY not found in environment variables.")
+        print("Please check your .env file.")
+    else:
+        setup_gemini_rag()
+        run_agent()
