@@ -1,5 +1,5 @@
-llama-index
+llama-index-core
+llama-index-llms-gemini
+llama-index-embeddings-gemini
 llama-parse
-llama-index-embeddings-openai
-llama-index-llms-openai
 python-dotenv
