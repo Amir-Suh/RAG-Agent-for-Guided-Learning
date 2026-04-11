@@ -1,5 +1,5 @@
 llama-index-core
-llama-index-llms-gemini
-llama-index-embeddings-gemini
-llama-parse
+llama-index-llms-google-genai
+llama-index-embeddings-google-genai
+llama-parse>=0.5.0
 python-dotenv

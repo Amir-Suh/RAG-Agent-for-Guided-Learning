@@ -1,30 +1,32 @@
 import os
 from dotenv import load_dotenv
-from llama_index.core import SimpleDirectoryReader, Settings
-from llama_index.core import PropertyGraphIndex
-from llama_index.core.indices.property_graph import SimpleLLMPathExtractor
+from llama_index.core import SimpleDirectoryReader, Settings, VectorStoreIndex
 from llama_parse import LlamaParse
-from llama_index.llms.gemini import Gemini
-from llama_index.embeddings.gemini import GeminiEmbedding
 
-# Load environment variables 
+# --- MODERN IMPORTS ---
+from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
+# ----------------------
+
 load_dotenv()
 
 def setup_gemini_rag():
-    print("Initializing Gemini API...")
+    print("Initializing Modern Gemini SDK...")
     
-    # Configure the LLM and Embedding Model
-    llm = Gemini(model="models/gemini-1.5-flash")
-    embed_model = GeminiEmbedding(model_name="models/text-embedding-004")
+    # FIX: Removed 'models/' prefix for the new unified SDK
+    llm = GoogleGenAI(model="gemini-2.5-flash")
     
-    # Apply to LlamaIndex Global Settings
+    # FIX: Removed 'models/' prefix here as well
+    embed_model = GoogleGenAIEmbedding(model_name="gemini-embedding-001")
+    
     Settings.llm = llm
     Settings.embed_model = embed_model
     
     print("Gemini settings applied successfully.\n")
 
 def run_agent():
-    print("Initializing LlamaParse...")
+    print("Initializing LlamaParse (Unified SDK)...")
+    # Note: You can ignore the LlamaParse deprecation warning in the terminal!
     parser = LlamaParse(
         result_type="markdown",
         verbose=True
@@ -34,40 +36,30 @@ def run_agent():
     
     print("Loading lecture slides from the 'data' folder...")
     try:
+        # We ensure the reader uses the new parser
         documents = SimpleDirectoryReader(
             "data", 
             file_extractor=file_extractor
         ).load_data()
-    except ValueError:
-        print("Error: Could not find a 'data' folder. Please create one and add your slides.")
+    except Exception as e:
+        print(f"Error loading documents: {e}")
         return
         
-    print(f"Loaded {len(documents)} document pages/slides.")
-    print("Extracting concepts and building the Knowledge Graph... (This will take a moment)")
+    print(f"Loaded {len(documents)} document pages. Building vector index...")
     
-    kg_extractor = SimpleLLMPathExtractor(
-        llm=Settings.llm, 
-        max_paths_per_chunk=10, 
-        num_workers=4
-    )
-    
-    index = PropertyGraphIndex.from_documents(
+    index = VectorStoreIndex.from_documents(
         documents,
-        kg_extractors=[kg_extractor],
         show_progress=True
     )
     
-    query_engine = index.as_query_engine(
-        include_text=True 
-    )
+    query_engine = index.as_query_engine(include_text=True)
     
     print("\n==================================================")
-    print("GraphRAG Tutor Ready! Ask a concept question (type 'quit' to exit)")
+    print("RAG Tutor Ready!")
     print("==================================================")
     
     while True:
-        user_query = input("\nYour question: ")
-        
+        user_query = input("\nYour question: (type 'quit' to exit) ")
         if user_query.lower() in ['quit', 'exit']:
             print("Exiting Tutor. Goodbye!")
             break
@@ -76,15 +68,8 @@ def run_agent():
         print(f"\nTutor: {response}")
 
 if __name__ == "__main__":
-    missing_keys = []
-    if not os.environ.get("GOOGLE_API_KEY"):
-        missing_keys.append("GOOGLE_API_KEY")
-    if not os.environ.get("LLAMA_CLOUD_API_KEY"):
-        missing_keys.append("LLAMA_CLOUD_API_KEY")
-        
-    if missing_keys:
-        print(f"CRITICAL ERROR: Missing API keys in .env file: {', '.join(missing_keys)}")
-        print("Please update your .env file before running.")
+    if not os.environ.get("GOOGLE_API_KEY") or not os.environ.get("LLAMA_CLOUD_API_KEY"):
+        print("CRITICAL ERROR: Missing API keys in .env file.")
     else:
         setup_gemini_rag()
         run_agent()
