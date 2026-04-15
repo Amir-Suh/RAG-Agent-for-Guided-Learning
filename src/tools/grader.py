@@ -22,7 +22,7 @@ def evaluate_student(question: str, student_answer: str, ground_truth: str) -> G
     
     # 2. INITIALIZE THE EVALUATOR LLM
     # We use a low temperature (0.1) so the grader is deterministic and strict, not creative.
-    llm = GoogleGenAI(model="models/gemini-2.5-flash", temperature=0.1)
+    llm = GoogleGenAI(model="models/gemini-2.5-flash", temperature=0.5)
 
     # 3. CONSTRUCT THE EVALUATION PROMPT
     prompt_str = """
@@ -34,6 +34,7 @@ def evaluate_student(question: str, student_answer: str, ground_truth: str) -> G
     
     Evaluate the student's answer based ONLY on the ground truth provided. 
     Do not penalize them for grammar, focus entirely on the mathematical concepts.
+    Given an example response, not straight off from the slides, that covers all parts of the question. 
     """
     
     prompt = PromptTemplate(prompt_str)
@@ -69,6 +70,5 @@ if __name__ == "__main__":
     )
     
     print("\n--- Grading Results ---")
-    print(f"Pass/Fail: {'✅ PASS' if grade.is_correct else '❌ FAIL'}")
     print(f"Score:     {grade.score}/100")
     print(f"Feedback:  {grade.feedback}")
