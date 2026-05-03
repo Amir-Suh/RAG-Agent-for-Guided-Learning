@@ -128,7 +128,6 @@ def intent_router_node(state: TutorState):
 
     return {"mode": intent}
 
-# --- 3. BUILD GRAPH ---
 
 def build_tutor_graph():
     workflow = StateGraph(TutorState)
